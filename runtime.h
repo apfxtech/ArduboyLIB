@@ -15,6 +15,7 @@ uint8_t poll_btns(void);
 Arduboy2Base* arduboy_runtime_bridge(void);
 
 bool arduboy_screen_inverted(void);
+void arduboy_screen_invert(bool invert);
 void arduboy_screen_invert_toggle(void);
 
 void setup(void);

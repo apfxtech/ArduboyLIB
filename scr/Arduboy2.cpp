@@ -289,9 +289,8 @@ void Arduboy2Base::applyDeferredDisplayOps() {
     }
 }
 
-void Arduboy2Base::invert(bool) {
-    // Toggle screen inversion - acts as a flipper
-    arduboy_screen_invert_toggle();
+inline void Arduboy2Base::invert(bool invert) {
+    arduboy_screen_invert(invert);
 }
 
 void Arduboy2Base::drawPixel(int16_t x, int16_t y, uint8_t color) {

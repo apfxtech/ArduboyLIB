@@ -72,6 +72,11 @@ void arduboy_screen_invert_toggle(void) {
     __atomic_store_n((bool*)&rt_state->screen_inverted, !current, __ATOMIC_RELEASE);
 }
 
+void arduboy_screen_invert(bool invert) {
+    if(!rt_state) return;
+    __atomic_store_n((bool*)&rt_state->screen_inverted, invert, __ATOMIC_RELEASE);
+}
+
 static Arduboy2Base* rt_primary_arduboy(void) {
     if(arduboy_ptr) return arduboy_ptr;
     return &rt_input_bridge;
