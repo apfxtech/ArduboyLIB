@@ -199,10 +199,10 @@ private:
 
     volatile bool* exit_requested_ = nullptr;
 
-    static inline uint8_t page_mask_(int16_t p, int16_t pages, int16_t h);
-    static inline bool isSpriteVisible_(int16_t x, int16_t y, int16_t w, int16_t h);
-    static inline bool clipVisibleColumns_(int16_t x, int16_t w, int16_t& start, int16_t& end);
-    static inline void buildPageMasks_(uint8_t* page_masks, int16_t pages, int16_t h);
+    static uint8_t page_mask_(int16_t p, int16_t pages, int16_t h);
+    static bool isSpriteVisible_(int16_t x, int16_t y, int16_t w, int16_t h);
+    static bool clipVisibleColumns_(int16_t x, int16_t w, int16_t& start, int16_t& end);
+    static void buildPageMasks_(uint8_t* page_masks, int16_t pages, int16_t h);
 
     void blitSelfMasked_(int16_t x, int16_t y, const uint8_t* src, int16_t w, int16_t h);
     void blitErase_(int16_t x, int16_t y, const uint8_t* src, int16_t w, int16_t h);
