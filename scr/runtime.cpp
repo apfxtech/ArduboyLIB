@@ -35,6 +35,7 @@ typedef struct {
     volatile bool exit_requested;
     volatile bool input_cb_enabled;
     volatile uint32_t input_cb_inflight;
+    volatile bool screen_inverted;
 } ArduboyRuntimeState;
 
 static ArduboyRuntimeState* rt_state = NULL;
@@ -60,6 +61,17 @@ volatile bool g_arduboy_force_norm = false;
 
 uint8_t* buf = NULL;
 
+bool arduboy_screen_inverted(void) {
+    if(!rt_state) return false;
+    return __atomic_load_n((bool*)&rt_state->screen_inverted, __ATOMIC_ACQUIRE);
+}
+
+void arduboy_screen_invert_toggle(void) {
+    if(!rt_state) return;
+    bool current = __atomic_load_n((bool*)&rt_state->screen_inverted, __ATOMIC_ACQUIRE);
+    __atomic_store_n((bool*)&rt_state->screen_inverted, !current, __ATOMIC_RELEASE);
+}
+
 static Arduboy2Base* rt_primary_arduboy(void) {
     if(arduboy_ptr) return arduboy_ptr;
     return &rt_input_bridge;
@@ -76,11 +88,6 @@ static InputKey rt_map_input_key(InputKey key) {
 
 static uint8_t rt_map_buttons(uint8_t buttons) {
     return buttons;
-}
-
-static uint8_t rt_transform_byte(uint8_t value, size_t index) {
-    UNUSED(index);
-    return (uint8_t)(value ^ 0xFFu);
 }
 
 static void rt_runtime_begin(
@@ -165,11 +172,18 @@ static void rt_view_port_draw_callback(Canvas* canvas, void* context) {
 
     if(furi_mutex_acquire(state->fb_mutex, FuriWaitForever) != FuriStatusOk) return;
 
+    bool inverted = __atomic_load_n((bool*)&state->screen_inverted, __ATOMIC_ACQUIRE);
     uint8_t* dst = u8g2_GetBufferPtr(&canvas->fb);
     if(dst) {
         const uint8_t* src = state->front_buffer;
-        for(size_t i = 0; i < RuntimeBufferSize; i++) {
-            dst[i] = rt_transform_byte(src[i], i);
+        if(inverted) {
+            for(size_t i = 0; i < RuntimeBufferSize; i++) {
+                dst[i] = (src[i] ^ 0xFFu);
+            }
+        } else {
+            for(size_t i = 0; i < RuntimeBufferSize; i++) {
+                dst[i] = src[i];
+            }
         }
     }
 
@@ -218,6 +232,7 @@ extern "C" int32_t arduboy_app(void* p) {
     state->game_mutex = furi_mutex_alloc(FuriMutexTypeNormal);
     state->input_cb_enabled = true;
     state->input_cb_inflight = 0;
+    state->screen_inverted = false;
 
     if(!state->fb_mutex || !state->game_mutex) {
         if(state->fb_mutex) furi_mutex_free(state->fb_mutex);
