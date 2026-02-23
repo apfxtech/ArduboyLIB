@@ -111,32 +111,32 @@ void Arduboy2Base::FlipperInputCallback(const InputEvent* event, void* ctx_ptr) 
     if(!event || !ctx_ptr) return;
     InputContext* ctx = (InputContext*)ctx_ptr;
     volatile uint8_t* st = ctx->input_state;
-    InputRuntime* rt = ctx->runtime;
-    if(!st && !rt) return;
+    InputRuntime* arduboy_ptr = ctx->runtime;
+    if(!st && !arduboy_ptr) return;
 
     const uint8_t bit = FlipperInputMaskFromKey_(event->key);
     if(!bit) return;
 
     if(event->type == InputTypePress) {
-        if(rt) {
-            (void)__atomic_fetch_or((uint8_t*)&rt->held, bit, __ATOMIC_RELAXED);
-            (void)__atomic_fetch_or((uint8_t*)&rt->press_latch, bit, __ATOMIC_RELAXED);
+        if(arduboy_ptr) {
+            (void)__atomic_fetch_or((uint8_t*)&arduboy_ptr->held, bit, __ATOMIC_RELAXED);
+            (void)__atomic_fetch_or((uint8_t*)&arduboy_ptr->press_latch, bit, __ATOMIC_RELAXED);
         }
         if(st) {
             (void)__atomic_fetch_or((uint8_t*)st, bit, __ATOMIC_RELAXED);
         }
     } else if(event->type == InputTypeRepeat) {
         // Repeat keeps the held state alive, but must not retrigger justPressed edges.
-        if(rt) {
-            (void)__atomic_fetch_or((uint8_t*)&rt->held, bit, __ATOMIC_RELAXED);
+        if(arduboy_ptr) {
+            (void)__atomic_fetch_or((uint8_t*)&arduboy_ptr->held, bit, __ATOMIC_RELAXED);
         }
         if(st) {
             (void)__atomic_fetch_or((uint8_t*)st, bit, __ATOMIC_RELAXED);
         }
     } else if(event->type == InputTypeRelease) {
-        if(rt) {
-            (void)__atomic_fetch_and((uint8_t*)&rt->held, (uint8_t)~bit, __ATOMIC_RELAXED);
-            (void)__atomic_fetch_or((uint8_t*)&rt->release_latch, bit, __ATOMIC_RELAXED);
+        if(arduboy_ptr) {
+            (void)__atomic_fetch_and((uint8_t*)&arduboy_ptr->held, (uint8_t)~bit, __ATOMIC_RELAXED);
+            (void)__atomic_fetch_or((uint8_t*)&arduboy_ptr->release_latch, bit, __ATOMIC_RELAXED);
         }
         if(st) {
             (void)__atomic_fetch_and((uint8_t*)st, (uint8_t)~bit, __ATOMIC_RELAXED);
