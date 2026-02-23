@@ -41,6 +41,15 @@ without engine hook functions.
 #define ARDULIB_USE_ATM
 ```
 
+### `ARDULIB_SWAP_AB`
+
+Swap A and B button flags. When defined, `A_BUTTON` becomes `0x20` and `B_BUTTON` becomes `0x10`.
+This is useful for games that expect different button layouts (e.g., some Arduboy games use B as "accept" instead of A).
+
+```cpp
+#define ARDULIB_SWAP_AB
+```
+
 ## Add ArduboyLIB To Your Project
 
 Use one of the following approaches inside your app folder.

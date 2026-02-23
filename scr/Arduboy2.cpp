@@ -1073,8 +1073,13 @@ uint8_t Arduboy2Base::mapInputToArduboyMask_(uint8_t in) {
     if(in & INPUT_DOWN) out |= DOWN_BUTTON;
     if(in & INPUT_LEFT) out |= LEFT_BUTTON;
     if(in & INPUT_RIGHT) out |= RIGHT_BUTTON;
+#ifdef ARDULIB_SWAP_AB
+    if(in & INPUT_B) out |= A_BUTTON;
+    if(in & INPUT_A) out |= B_BUTTON;
+#else
     if(in & INPUT_B) out |= B_BUTTON;
     if(in & INPUT_A) out |= A_BUTTON;
+#endif
     return out;
 }
 
