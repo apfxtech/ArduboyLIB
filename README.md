@@ -134,3 +134,12 @@ void loop() {
 ## Original
 **MrBlinky**
 [Arduboy homemade package](https://github.com/MrBlinky/Arduboy-homemade-package.git)
+
+Creative Commons Legal Code
+(CC0 1.0 Universal)
+
+## Contributors and authors
+<a href="https://github.com/apfxtech/ArduboyLIB/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=apfxtech/ArduboyLIB" />
+  <img src="https://contrib.rocks/image?repo=MrBlinky/Arduboy-homemade-package" />
+</a>
