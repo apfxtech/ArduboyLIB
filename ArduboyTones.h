@@ -57,11 +57,11 @@ static constexpr float kArduboyToneSoundVolumeNormal = 1.0f;
 static constexpr float kArduboyToneSoundVolumeHigh = 1.0f;
 static constexpr uint32_t kArduboyToneToneTickHz = ARDUBOY_TONES_TICK_HZ;
 
-static inline uint32_t arduboy_tone_ticks_to_ms(uint16_t ticks) {
+static inline uint32_t ardulib_tone_ticks_to_ms(uint16_t ticks) {
     return (uint32_t)((ticks * 1000u + (kArduboyToneToneTickHz / 2)) / kArduboyToneToneTickHz);
 }
 
-static inline float arduboy_tone_volume_for(uint16_t freq_word) {
+static inline float ardulib_tone_volume_for(uint16_t freq_word) {
     bool want_high = false;
     if(g_arduboy_force_norm)
         want_high = false;
@@ -72,11 +72,11 @@ static inline float arduboy_tone_volume_for(uint16_t freq_word) {
     return want_high ? kArduboyToneSoundVolumeHigh : kArduboyToneSoundVolumeNormal;
 }
 
-static inline uint16_t arduboy_tone_strip_volume(uint16_t freq_word) {
+static inline uint16_t ardulib_tone_strip_volume(uint16_t freq_word) {
     return (uint16_t)(freq_word & (uint16_t)~TONE_HIGH_VOLUME);
 }
 
-static int32_t arduboy_tone_sound_thread_fn(void* /*ctx*/) {
+static int32_t ardulib_tone_sound_thread_fn(void* /*ctx*/) {
     ArduboyToneSoundRequest req;
     const uint16_t* current_pattern = NULL;
 
@@ -137,8 +137,8 @@ static int32_t arduboy_tone_sound_thread_fn(void* /*ctx*/) {
 
             uint16_t dur_ticks = *p++;
 
-            float vol = arduboy_tone_volume_for(freq_word);
-            uint16_t freq = arduboy_tone_strip_volume(freq_word);
+            float vol = ardulib_tone_volume_for(freq_word);
+            uint16_t freq = ardulib_tone_strip_volume(freq_word);
 
             if(dur_ticks == 0) {
                 if(freq == 0) {
@@ -166,7 +166,7 @@ static int32_t arduboy_tone_sound_thread_fn(void* /*ctx*/) {
                 continue;
             }
 
-            uint32_t dur_ms = arduboy_tone_ticks_to_ms(dur_ticks);
+            uint32_t dur_ms = ardulib_tone_ticks_to_ms(dur_ticks);
             if(dur_ms == 0) dur_ms = 1;
             const uint32_t note_deadline = timeline_ms + dur_ms;
             timeline_ms = note_deadline;
@@ -204,19 +204,19 @@ static int32_t arduboy_tone_sound_thread_fn(void* /*ctx*/) {
     return 0;
 }
 
-static void arduboy_tone_sound_system_init() {
+static void ardulib_tone_init() {
     if(g_arduboy_sound_queue || g_arduboy_sound_thread) return;
     g_arduboy_sound_queue = furi_message_queue_alloc(4, sizeof(ArduboyToneSoundRequest));
     g_arduboy_sound_thread = furi_thread_alloc();
     furi_thread_set_name(g_arduboy_sound_thread, "ArduboySound");
     furi_thread_set_stack_size(g_arduboy_sound_thread, 1024);
     furi_thread_set_priority(g_arduboy_sound_thread, FuriThreadPriorityNormal);
-    furi_thread_set_callback(g_arduboy_sound_thread, arduboy_tone_sound_thread_fn);
+    furi_thread_set_callback(g_arduboy_sound_thread, ardulib_tone_sound_thread_fn);
     g_arduboy_sound_thread_running = true;
     furi_thread_start(g_arduboy_sound_thread);
 }
 
-inline void arduboy_tone_sound_system_deinit() {
+inline void ardulib_tone_deinit() {
     if(!g_arduboy_sound_thread) return;
     g_arduboy_sound_thread_running = false;
     furi_thread_join(g_arduboy_sound_thread);
@@ -239,7 +239,7 @@ public:
 
     void begin() {
         g_arduboy_audio_enabled = true;
-        arduboy_tone_sound_system_init();
+        ardulib_tone_init();
     }
 
     static void volumeMode(uint8_t mode) {

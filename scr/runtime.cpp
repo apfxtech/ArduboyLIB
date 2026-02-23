@@ -39,9 +39,6 @@ typedef struct {
 
 static ArduboyRuntimeState* rt_state = NULL;
 static Arduboy2Base rt_input_bridge;
-#ifdef ARDULIB_USE_ATM
-static bool rt_atm_initialized = false;
-#endif
 
 static void rt_wait_input_callbacks_idle(ArduboyRuntimeState* state) {
     if(!state) return;
@@ -108,36 +105,12 @@ static void rt_runtime_begin(
         Sprites::setArduboy(arduboy_ptr);
     }
 
-#ifdef ARDULIB_USE_ATM
-    atm_system_init();
-    rt_atm_initialized = true;
-    if(arduboy_ptr) {
-        atm_set_enabled(arduboy_ptr->audio.enabled() ? 1u : 0u);
-    } else {
-        atm_set_enabled(1u);
-    }
-#endif
 }
 
 static void rt_runtime_idle(void) {
-#ifdef ARDULIB_USE_ATM
-    Arduboy2Base* primary = rt_primary_arduboy();
-    if(primary) {
-        atm_set_enabled(primary->audio.enabled() ? 1u : 0u);
-    }
-#endif
     furi_delay_ms(1);
 }
 
-static void rt_runtime_on_stop(void) {
-#ifdef ARDULIB_USE_ATM
-    if(rt_atm_initialized) {
-        atm_system_deinit();
-        rt_atm_initialized = false;
-    }
-    arduboy_tone_sound_system_deinit();
-#endif
-}
 
 Arduboy2Base* arduboy_runtime_bridge(void) {
     return &rt_input_bridge;
