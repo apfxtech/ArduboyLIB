@@ -84,27 +84,16 @@ class ArduboyTones {
 public:
     explicit ArduboyTones(bool /*enabled*/) {}
     ArduboyTones() {}
-
     void attachAudio(ArduboyAudio* /*audio*/) {}
-
     void begin();
-
     static void volumeMode(uint8_t mode);
-
     static bool playing();
-
     void tones(const uint16_t* pattern);
-
     void tonesInRAM(uint16_t* pattern);
-
     void noTone();
-
     void tone(uint16_t frequency, uint16_t duration_ms);
-
     void tone(uint16_t freq, uint16_t dur_ms, uint16_t freq2, uint16_t dur2_ms);
-
     void tone(uint16_t f1, uint16_t d1_ms, uint16_t f2, uint16_t d2_ms, uint16_t f3, uint16_t d3_ms);
-
     static void nextTone() {}
 
 private:

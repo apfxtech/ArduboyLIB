@@ -116,13 +116,11 @@ static void rt_runtime_begin(
     if(arduboy_ptr) {
         Sprites::setArduboy(arduboy_ptr);
     }
-
 }
 
 static void rt_runtime_idle(void) {
     furi_delay_ms(1);
 }
-
 
 Arduboy2Base* arduboy_runtime_bridge(void) {
     return &rt_input_bridge;
@@ -182,12 +180,10 @@ static void rt_view_port_draw_callback(Canvas* canvas, void* context) {
     if(dst) {
         const uint8_t* src = state->front_buffer;
         if(inverted) {
-            for(size_t i = 0; i < RuntimeBufferSize; i++) {
-                dst[i] = (src[i] ^ 0xFFu);
-            }
+            memcpy(dst, src, n);
         } else {
             for(size_t i = 0; i < RuntimeBufferSize; i++) {
-                dst[i] = src[i];
+                dst[i] = (src[i] ^ 0xFFu);
             }
         }
     }
@@ -290,7 +286,8 @@ extern "C" int32_t arduboy_app(void* p) {
         rt_runtime_idle();
     }
 
-    rt_runtime_on_stop();
+    Arduboy2Base* primary = rt_primary_arduboy();
+    primary.audio.off();
 
     __atomic_store_n((bool*)&state->input_cb_enabled, false, __ATOMIC_RELEASE);
 
