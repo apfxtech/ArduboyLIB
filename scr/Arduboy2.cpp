@@ -290,7 +290,7 @@ void Arduboy2Base::applyDeferredDisplayOps() {
     }
 }
 
-inline void Arduboy2Base::invert(bool invert) {
+void Arduboy2Base::invert(bool invert) {
     arduboy_screen_invert(invert);
 }
 
