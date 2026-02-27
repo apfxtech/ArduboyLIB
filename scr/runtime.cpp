@@ -36,6 +36,7 @@ typedef struct {
 #endif
 
     volatile uint8_t input_state;
+    volatile uint8_t input_press_latch;
     volatile bool exit_requested;
     volatile bool input_cb_enabled;
     volatile uint32_t input_cb_inflight;
@@ -82,10 +83,12 @@ void arduboy_screen_invert(bool invert) {
 void rt_runtime_begin(
     uint8_t* screen_buffer,
     volatile uint8_t* input_state,
+    volatile uint8_t* input_press_latch,
     FuriMutex* game_mutex,
     volatile bool* exit_requested) {
     UNUSED(screen_buffer);
     UNUSED(input_state);
+    UNUSED(input_press_latch);
     UNUSED(game_mutex);
     UNUSED(exit_requested);
 
@@ -103,7 +106,6 @@ void rt_input_view_port_callback(InputEvent* event, void* context) {
 
     ArduboyRuntimeState* state = (ArduboyRuntimeState*)context;
     if(!__atomic_load_n((bool*)&state->input_cb_enabled, __ATOMIC_ACQUIRE)) return;
-    if((event->type != InputTypePress) && (event->type != InputTypeRelease)) return;
 
     (void)__atomic_fetch_add((uint32_t*)&state->input_cb_inflight, 1, __ATOMIC_ACQ_REL);
 
@@ -231,11 +233,15 @@ extern "C" int32_t arduboy_app(void* p) {
     arduboy.begin(
         state->screen_buffer,
         &state->input_state,
-        &state->input_state,
+        &state->input_press_latch,
         state->game_mutex,
         &state->exit_requested);
     rt_runtime_begin(
-        state->screen_buffer, &state->input_state, state->game_mutex, &state->exit_requested);
+        state->screen_buffer,
+        &state->input_state,
+        &state->input_press_latch,
+        state->game_mutex,
+        &state->exit_requested);
 
     state->gui = (Gui*)furi_record_open(RECORD_GUI);
     if(!state->gui) {
