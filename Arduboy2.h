@@ -77,9 +77,6 @@ using uint24_t = uint32_t;
 
 #include "include/obj.h"
 
-// Forward declaration for runtime cooperation
-struct ArduboyRuntimeState;
-
 class Arduboy2Base {
 public:
     ArduboyAudio audio;

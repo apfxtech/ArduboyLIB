@@ -14,11 +14,9 @@
 
 extern Arduboy2Base arduboy;
 
-namespace {
-
-static constexpr size_t RuntimeWidth = 128u;
-static constexpr size_t RuntimeHeight = 64u;
-static constexpr size_t RuntimeBufferSize = (RuntimeWidth * RuntimeHeight) / 8u;
+constexpr size_t RuntimeWidth = 128u;
+constexpr size_t RuntimeHeight = 64u;
+constexpr size_t RuntimeBufferSize = (RuntimeWidth * RuntimeHeight) / 8u;
 
 typedef struct {
     uint8_t screen_buffer[RuntimeBufferSize];
@@ -37,16 +35,15 @@ typedef struct {
     volatile bool screen_inverted;
 } ArduboyRuntimeState;
 
-static ArduboyRuntimeState rt_state;
-static bool rt_state_initialized = false;
-static void rt_wait_input_callbacks_idle(ArduboyRuntimeState* state) {
+ArduboyRuntimeState rt_state;
+bool rt_state_initialized = false;
+
+void rt_wait_input_callbacks_idle(ArduboyRuntimeState* state) {
     if(!state) return;
     while(__atomic_load_n((uint32_t*)&state->input_cb_inflight, __ATOMIC_ACQUIRE) != 0) {
         furi_delay_ms(1);
     }
 }
-
-} // namespace
 
 FuriMessageQueue* g_arduboy_sound_queue = NULL;
 FuriThread* g_arduboy_sound_thread = NULL;
@@ -75,7 +72,7 @@ void arduboy_screen_invert(bool invert) {
     __atomic_store_n((bool*)&rt_state.screen_inverted, invert, __ATOMIC_RELEASE);
 }
 
-static void rt_runtime_begin(
+void rt_runtime_begin(
     uint8_t* screen_buffer,
     volatile uint8_t* input_state,
     FuriMutex* game_mutex,
@@ -93,7 +90,7 @@ uint16_t time_ms(void) {
     return (uint16_t)millis();
 }
 
-static void rt_input_view_port_callback(InputEvent* event, void* context) {
+void rt_input_view_port_callback(InputEvent* event, void* context) {
     if(!event || !context) return;
 
     ArduboyRuntimeState* state = (ArduboyRuntimeState*)context;
@@ -110,11 +107,12 @@ static void rt_input_view_port_callback(InputEvent* event, void* context) {
     (void)__atomic_fetch_sub((uint32_t*)&state->input_cb_inflight, 1, __ATOMIC_ACQ_REL);
 }
 
-static void rt_framebuffer_commit_callback(
+void rt_framebuffer_commit_callback(
     uint8_t* data,
     size_t size,
     CanvasOrientation orientation,
     void* context) {
+    UNUSED(context);
     ArduboyRuntimeState* state = (ArduboyRuntimeState*)context;
     if(!state || !data) return;
     if(size < RuntimeBufferSize) return;
@@ -124,7 +122,7 @@ static void rt_framebuffer_commit_callback(
 
     const uint8_t* src = state->front_buffer;
     bool inverted = __atomic_load_n((bool*)&state->screen_inverted, __ATOMIC_ACQUIRE);
-    
+
     for(size_t i = 0; i < RuntimeBufferSize; i++) {
         if(inverted) {
             data[i] = src[i];
@@ -136,7 +134,7 @@ static void rt_framebuffer_commit_callback(
     furi_mutex_release(state->fb_mutex);
 }
 
-static bool rt_step_frame(ArduboyRuntimeState* state, uint32_t fb_wait) {
+bool rt_step_frame(ArduboyRuntimeState* state, uint32_t fb_wait) {
     if(!state || state->exit_requested) return false;
     if(furi_mutex_acquire(state->game_mutex, 0) != FuriStatusOk) return false;
 
@@ -162,7 +160,7 @@ static bool rt_step_frame(ArduboyRuntimeState* state, uint32_t fb_wait) {
     return has_new_frame;
 }
 
-static void rt_view_port_draw_callback(Canvas* canvas, void* context) {
+void rt_view_port_draw_callback(Canvas* canvas, void* context) {
     UNUSED(context);
     canvas_commit(canvas);
 }
@@ -196,7 +194,7 @@ extern "C" int32_t arduboy_app(void* p) {
     arduboy.begin(
         state->screen_buffer,
         &state->input_state,
-        &state->input_state, 
+        &state->input_state,
         state->game_mutex,
         &state->exit_requested);
     rt_runtime_begin(
