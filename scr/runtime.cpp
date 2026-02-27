@@ -3,6 +3,9 @@
 #include <furi_hal.h>
 #include <gui/gui.h>
 #include <gui/canvas.h>
+#ifdef ARDULIB_USE_VIEW_PORT
+#include <gui/canvas_i.h>
+#endif
 #include <input/input.h>
 
 #include <stdlib.h>
@@ -24,9 +27,15 @@ typedef struct {
 
     Gui* gui;
     Canvas* canvas;
-    ViewPort* view_port;
     FuriMutex* fb_mutex;
     FuriMutex* game_mutex;
+
+#ifdef ARDULIB_USE_VIEW_PORT
+    ViewPort* view_port;
+#else
+    FuriPubSub* input_events;
+    FuriPubSubSubscription* input_sub;
+#endif
 
     volatile uint8_t input_state;
     volatile bool exit_requested;
@@ -90,6 +99,7 @@ uint16_t time_ms(void) {
     return (uint16_t)millis();
 }
 
+#ifdef ARDULIB_USE_VIEW_PORT
 void rt_input_view_port_callback(InputEvent* event, void* context) {
     if(!event || !context) return;
 
@@ -106,13 +116,29 @@ void rt_input_view_port_callback(InputEvent* event, void* context) {
 
     (void)__atomic_fetch_sub((uint32_t*)&state->input_cb_inflight, 1, __ATOMIC_ACQ_REL);
 }
+#endif
+
+#ifndef ARDULIB_USE_VIEW_PORT
+void rt_input_events_callback(const void* value, void* ctx) {
+    if(!value || !ctx) return;
+
+    const InputEvent* event = (const InputEvent*)value;
+    ArduboyRuntimeState* state = (ArduboyRuntimeState*)ctx;
+    if(!__atomic_load_n((bool*)&state->input_cb_enabled, __ATOMIC_ACQUIRE)) return;
+
+    (void)__atomic_fetch_add((uint32_t*)&state->input_cb_inflight, 1, __ATOMIC_RELAXED);
+
+    Arduboy2Base::FlipperInputCallback(event, &arduboy);
+
+    (void)__atomic_fetch_sub((uint32_t*)&state->input_cb_inflight, 1, __ATOMIC_RELAXED);
+}
+#endif
 
 void rt_framebuffer_commit_callback(
     uint8_t* data,
     size_t size,
     CanvasOrientation orientation,
     void* context) {
-    UNUSED(context);
     ArduboyRuntimeState* state = (ArduboyRuntimeState*)context;
     if(!state || !data) return;
     if(size < RuntimeBufferSize) return;
@@ -134,36 +160,69 @@ void rt_framebuffer_commit_callback(
     furi_mutex_release(state->fb_mutex);
 }
 
+static bool rt_consume_display_request(void) {
+    const bool pending = arduboy.pending_display_;
+    arduboy.pending_display_ = false;
+    return pending;
+}
+
+bool rt_present_if_requested(ArduboyRuntimeState* state, uint32_t fb_wait) {
+    if(!state) return false;
+    if(!rt_consume_display_request()) return false;
+
+    if(furi_mutex_acquire(state->fb_mutex, fb_wait) == FuriStatusOk) {
+        memcpy(state->front_buffer, state->screen_buffer, RuntimeBufferSize);
+        furi_mutex_release(state->fb_mutex);
+    }
+
+    arduboy.applyDeferredDisplayOps();
+
+#ifdef ARDULIB_USE_VIEW_PORT
+    if(state->view_port) view_port_update(state->view_port);
+#else
+    if(state->canvas) canvas_commit(state->canvas);
+#endif
+
+    return true;
+}
+
 bool rt_step_frame(ArduboyRuntimeState* state, uint32_t fb_wait) {
     if(!state || state->exit_requested) return false;
     if(furi_mutex_acquire(state->game_mutex, 0) != FuriStatusOk) return false;
 
-    uint32_t frame_before = arduboy.frameCount();
-
     loop();
 
-    uint32_t frame_after = arduboy.frameCount();
-    bool has_new_frame = (frame_after != frame_before);
-
-    if(has_new_frame) {
-        if(furi_mutex_acquire(state->fb_mutex, fb_wait) == FuriStatusOk) {
-            memcpy(state->front_buffer, state->screen_buffer, RuntimeBufferSize);
-            furi_mutex_release(state->fb_mutex);
-        }
-
-        arduboy.applyDeferredDisplayOps();
-
-        if(state->view_port) view_port_update(state->view_port);
-    }
+    const bool presented = rt_present_if_requested(state, fb_wait);
 
     furi_mutex_release(state->game_mutex);
-    return has_new_frame;
+    return presented;
 }
 
+#ifdef ARDULIB_USE_VIEW_PORT
 void rt_view_port_draw_callback(Canvas* canvas, void* context) {
-    UNUSED(context);
-    canvas_commit(canvas);
+    ArduboyRuntimeState* state = (ArduboyRuntimeState*)context;
+    if(!state || !canvas) return;
+
+    uint8_t* data = canvas_get_buffer(canvas);
+    size_t size = canvas_get_buffer_size(canvas);
+    if(!data || size < RuntimeBufferSize) return;
+
+    if(furi_mutex_acquire(state->fb_mutex, 0) != FuriStatusOk) return;
+
+    const uint8_t* src = state->front_buffer;
+    bool inverted = __atomic_load_n((bool*)&state->screen_inverted, __ATOMIC_ACQUIRE);
+
+    for(size_t i = 0; i < RuntimeBufferSize; i++) {
+        if(inverted) {
+            data[i] = src[i];
+        } else {
+            data[i] = (uint8_t)(src[i] ^ 0xFF);
+        }
+    }
+
+    furi_mutex_release(state->fb_mutex);
 }
+#endif
 
 
 extern "C" int32_t arduboy_app(void* p) {
@@ -201,9 +260,18 @@ extern "C" int32_t arduboy_app(void* p) {
         state->screen_buffer, &state->input_state, state->game_mutex, &state->exit_requested);
 
     state->gui = (Gui*)furi_record_open(RECORD_GUI);
+    if(!state->gui) {
+        if(state->gui) furi_record_close(RECORD_GUI);
+        furi_mutex_free(state->fb_mutex);
+        furi_mutex_free(state->game_mutex);
+        rt_state_initialized = false;
+        buf = NULL;
+        return -1;
+    }
+
+#ifdef ARDULIB_USE_VIEW_PORT
     state->view_port = view_port_alloc();
-    if(!state->gui || !state->view_port) {
-        if(state->view_port) view_port_free(state->view_port);
+    if(!state->view_port) {
         if(state->gui) furi_record_close(RECORD_GUI);
         furi_mutex_free(state->fb_mutex);
         furi_mutex_free(state->game_mutex);
@@ -214,26 +282,35 @@ extern "C" int32_t arduboy_app(void* p) {
 
     view_port_draw_callback_set(state->view_port, rt_view_port_draw_callback, state);
     view_port_input_callback_set(state->view_port, rt_input_view_port_callback, state);
-    gui_add_framebuffer_callback(state->gui, rt_framebuffer_commit_callback, state);
     state->front_buffer[0] = 0; // Force initial draw
     gui_add_view_port(state->gui, state->view_port, GuiLayerFullscreen);
-    //state->canvas = gui_direct_draw_acquire(state->gui);
+#else
+    gui_add_framebuffer_callback(state->gui, rt_framebuffer_commit_callback, state);
+    state->canvas = gui_direct_draw_acquire(state->gui);
+
+    state->input_events = (FuriPubSub*)furi_record_open(RECORD_INPUT_EVENTS);
+    if(state->input_events) {
+        state->input_sub =
+            furi_pubsub_subscribe(state->input_events, rt_input_events_callback, state);
+    }
+#endif
+
+#ifndef ARDULIB_USE_VIEW_PORT
     if(state->canvas) {
         canvas_clear(state->canvas);
         canvas_commit(state->canvas);
     }
+#endif
 
     if(furi_mutex_acquire(state->game_mutex, FuriWaitForever) == FuriStatusOk) {
         setup();
         furi_mutex_release(state->game_mutex);
     }
 
-    if(furi_mutex_acquire(state->fb_mutex, FuriWaitForever) == FuriStatusOk) {
-        memcpy(state->front_buffer, state->screen_buffer, RuntimeBufferSize);
-        furi_mutex_release(state->fb_mutex);
+    if(furi_mutex_acquire(state->game_mutex, FuriWaitForever) == FuriStatusOk) {
+        (void)rt_present_if_requested(state, FuriWaitForever);
+        furi_mutex_release(state->game_mutex);
     }
-
-    view_port_update(state->view_port);
 
     while(!state->exit_requested) {
         (void)rt_step_frame(state, 0);
@@ -244,20 +321,36 @@ extern "C" int32_t arduboy_app(void* p) {
 
     __atomic_store_n((bool*)&state->input_cb_enabled, false, __ATOMIC_RELEASE);
 
+#ifdef ARDULIB_USE_VIEW_PORT
     if(state->view_port && state->gui) {
         view_port_enabled_set(state->view_port, false);
         gui_remove_view_port(state->gui, state->view_port);
         view_port_free(state->view_port);
         state->view_port = NULL;
     }
-
-    if(state->canvas) {
-        //gui_direct_draw_release(state->gui);
-        state->canvas = NULL;
+#else
+    if(state->input_sub) {
+        furi_pubsub_unsubscribe(state->input_events, state->input_sub);
+        state->input_sub = NULL;
     }
 
+    rt_wait_input_callbacks_idle(state);
+
+    if(state->input_events) {
+        furi_record_close(RECORD_INPUT_EVENTS);
+        state->input_events = NULL;
+    }
+
+    if(state->canvas && state->gui) {
+        gui_direct_draw_release(state->gui);
+        state->canvas = NULL;
+    }
+#endif
+
     if(state->gui) {
+#ifndef ARDULIB_USE_VIEW_PORT
         gui_remove_framebuffer_callback(state->gui, rt_framebuffer_commit_callback, state);
+#endif
         furi_record_close(RECORD_GUI);
         state->gui = NULL;
     }

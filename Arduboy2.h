@@ -105,6 +105,7 @@ public:
 
     // Флаги
     bool pending_clear_after_present_ = false;
+    bool pending_display_ = false;
     bool external_timing_ = false;
 
     void begin(

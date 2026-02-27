@@ -63,6 +63,8 @@ void Arduboy2Base::begin(
     external_timing_ = false;
     frame_count_ = 0;
     last_frame_ms_ = 0;
+    pending_display_ = false;
+    pending_clear_after_present_ = false;
     resetInputState();
 }
 
@@ -234,10 +236,12 @@ void Arduboy2Base::fillScreen(uint8_t color) {
 }
 
 void Arduboy2Base::display() {
+    pending_display_ = true;
 }
 
 void Arduboy2Base::display(bool clear) {
     if(clear) pending_clear_after_present_ = true;
+    pending_display_ = true;
 }
 
 void Arduboy2Base::applyDeferredDisplayOps() {
