@@ -190,8 +190,8 @@ void rt_view_port_draw_callback(Canvas* canvas, void* context) {
     ArduboyRuntimeState* state = (ArduboyRuntimeState*)context;
     if(!state || !canvas) return;
 
-    uint8_t* data = canvas_get_buffer(canvas);
-    size_t size = canvas_get_buffer_size(canvas);
+    uint8_t* data = u8g2_GetBufferPtr(&canvas->fb); #canvas_get_buffer
+    size_t size = RuntimeBufferSize;
     if(!data || size < RuntimeBufferSize) return;
 
     const uint8_t* src = state->screen_buffer;
