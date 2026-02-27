@@ -190,9 +190,9 @@ void rt_view_port_draw_callback(Canvas* canvas, void* context) {
     ArduboyRuntimeState* state = (ArduboyRuntimeState*)context;
     if(!state || !canvas) return;
 
-    uint8_t* data = u8g2_GetBufferPtr(&canvas->fb); #canvas_get_buffer
+    uint8_t* data = u8g2_GetBufferPtr(&canvas->fb); //canvas_get_buffer
     size_t size = RuntimeBufferSize;
-    if(!data || size < RuntimeBufferSize) return;
+    if(!data) return;
 
     const uint8_t* src = state->screen_buffer;
     bool inverted = __atomic_load_n((bool*)&state->screen_inverted, __ATOMIC_ACQUIRE);
