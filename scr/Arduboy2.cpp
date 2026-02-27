@@ -109,9 +109,6 @@ void Arduboy2Base::FlipperInputCallback(const InputEvent* event, void* ctx_ptr) 
             (void)__atomic_fetch_or((uint8_t*)arduboy_ptr->input_state_, bit, __ATOMIC_RELAXED);
         }
     } else if(event->type == InputTypeRelease) {
-        if(arduboy_ptr->input_press_latch_) {
-            (void)__atomic_fetch_or((uint8_t*)arduboy_ptr->input_press_latch_, bit, __ATOMIC_RELAXED);
-        }
         if(arduboy_ptr->input_state_) {
             (void)__atomic_fetch_and((uint8_t*)arduboy_ptr->input_state_, (uint8_t)~bit, __ATOMIC_RELAXED);
         }
@@ -176,7 +173,6 @@ void Arduboy2Base::pollButtons() {
     if(input_press_latch_) {
         // Сбрасываем latch после чтения для edge detection
         press = __atomic_exchange_n((uint8_t*)input_press_latch_, 0, __ATOMIC_RELAXED);
-        release = press; // release = press для совместимости
     }
 
     cur_buttons_ = mapInputToArduboyMask_(in);
