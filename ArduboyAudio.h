@@ -2,7 +2,10 @@
 
 #include <furi.h>
 #include <furi_hal.h>
+#include "include/ArduboyAudioState.h"
+#ifdef ARDULIB_USE_TONES
 #include "ArduboyTones.h"
+#endif
 #ifdef ARDULIB_USE_ATM
 #include "ATMlib.h"
 #endif
@@ -10,32 +13,34 @@
 class ArduboyAudio {
 public:
     void begin() {
-        const bool system_enabled = systemAudioEnabled();
-        if(system_enabled) {
-            on();
-        } else {
+        if(furi_hal_rtc_is_flag_set(FuriHalRtcFlagStealthMode)) {
             off();
+        } else {
+            on();
         }
     }
 
     void on() {
         g_arduboy_audio_enabled = true;
+#ifdef ARDULIB_USE_TONES
         ardulib_tone_init();
+#endif
 #ifdef ARDULIB_USE_ATM
-        ardulib_atm_system_init();
-        ardulib_atm_set_enabled(true);
+        ATMsynth::systemInit();
+        ATMsynth::setEnabled(true);
 #endif
     }
 
     void off() {
         g_arduboy_audio_enabled = false;
-        ArduboyToneSoundRequest req = {.pattern = NULL};
-        if(g_arduboy_sound_queue) (void)furi_message_queue_put(g_arduboy_sound_queue, &req, 0);
-#ifdef ARDULIB_USE_ATM
-        ardulib_atm_set_enabled(false);
-        ardulib_atm_system_deinit();
-#endif
+#ifdef ARDULIB_USE_TONES
+        ardulib_tone_stop();
         ardulib_tone_deinit();
+#endif
+#ifdef ARDULIB_USE_ATM
+        ATMsynth::setEnabled(false);
+        ATMsynth::systemDeinit();
+#endif
     }
 
     static bool enabled() {
@@ -48,10 +53,6 @@ public:
         } else {
             on();
         }
-    }
-
-    bool systemAudioEnabled() const {
-        return !furi_hal_rtc_is_flag_set(FuriHalRtcFlagStealthMode);
     }
 
     void saveOnOff() {

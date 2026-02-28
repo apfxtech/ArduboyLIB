@@ -53,14 +53,16 @@ void rt_wait_input_callbacks_idle(ArduboyRuntimeState* state) {
     }
 }
 
+volatile bool g_arduboy_audio_enabled = false;
+#ifdef ARDULIB_USE_TONES
 FuriMessageQueue* g_arduboy_sound_queue = NULL;
 FuriThread* g_arduboy_sound_thread = NULL;
 volatile bool g_arduboy_sound_thread_running = false;
-volatile bool g_arduboy_audio_enabled = false;
 volatile bool g_arduboy_tones_playing = false;
 volatile uint8_t g_arduboy_volume_mode = VOLUME_IN_TONE;
 volatile bool g_arduboy_force_high = false;
 volatile bool g_arduboy_force_norm = false;
+#endif
 
 uint8_t* buf = NULL;
 

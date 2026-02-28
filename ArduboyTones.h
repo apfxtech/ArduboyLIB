@@ -45,6 +45,7 @@ static constexpr float kArduboyToneSoundVolumeNormal = 1.0f;
 static constexpr float kArduboyToneSoundVolumeHigh = 1.0f;
 static constexpr uint32_t kArduboyToneToneTickHz = ARDUBOY_TONES_TICK_HZ;
 
+#ifdef ARDULIB_USE_TONES
 static inline uint32_t ardulib_tone_ticks_to_ms(uint16_t ticks) {
     return (uint32_t)((ticks * 1000u + (kArduboyToneToneTickHz / 2)) / kArduboyToneToneTickHz);
 }
@@ -65,14 +66,13 @@ static inline uint16_t ardulib_tone_strip_volume(uint16_t freq_word) {
 }
 
 void ardulib_tone_init();
+void ardulib_tone_stop();
 void ardulib_tone_deinit();
 
-class ArduboyAudio;
 class ArduboyTones {
 public:
     explicit ArduboyTones(bool /*enabled*/) {}
     ArduboyTones() {}
-    void attachAudio(ArduboyAudio* /*audio*/) {}
     void begin();
     static void volumeMode(uint8_t mode);
     static bool playing();
@@ -103,3 +103,27 @@ private:
     uint16_t inline_patterns3_[8][7];
     uint8_t inline_idx3_ = 0;
 };
+#else
+class ArduboyTones {
+public:
+    explicit ArduboyTones(bool /*enabled*/) {}
+    ArduboyTones() {}
+    void begin() {}
+    static void volumeMode(uint8_t /*mode*/) {}
+    static bool playing() { return false; }
+    void tones(const uint16_t* /*pattern*/) {}
+    void tonesInRAM(uint16_t* /*pattern*/) {}
+    void noTone() {}
+    void tone(uint16_t /*frequency*/, uint16_t /*duration_ms*/) {}
+    void tone(uint16_t /*freq*/, uint16_t /*dur_ms*/, uint16_t /*freq2*/, uint16_t /*dur2_ms*/) {
+    }
+    void tone(
+        uint16_t /*f1*/,
+        uint16_t /*d1_ms*/,
+        uint16_t /*f2*/,
+        uint16_t /*d2_ms*/,
+        uint16_t /*f3*/,
+        uint16_t /*d3_ms*/) {}
+    static void nextTone() {}
+};
+#endif
