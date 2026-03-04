@@ -4,7 +4,6 @@
 #include "ArduboyTones.h"
 #include "ArduboyAudio.h"
 #include "EEPROM.h"
-#include "Tinyfont.h"
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
@@ -232,6 +231,7 @@ private:
         int16_t w,
         int16_t h);
 
+    static const uint8_t font5x7_[] PROGMEM;
     static uint8_t mapInputToArduboyMask_(uint8_t in);
     void printUnsigned_(unsigned long value);
 
